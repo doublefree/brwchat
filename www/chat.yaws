@@ -1,0 +1,4 @@
+<erl>
+out(Arg) ->
+    {html, "hogehoge"}.
+</erl>
