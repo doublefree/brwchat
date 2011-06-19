@@ -12,15 +12,14 @@ $(function() {
             return false;
         }
 
-        $.post('chat.yaws', 
-        //$.post('/chat', 
+        $.post('chat_handler.yaws', 
             {
                 name: login_name
             },
             success = function(data) {
             alert(data);
                 // hide container
-                $("#login_container").hide();
+                //$("#login_container").hide();
             }
         );
 

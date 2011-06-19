@@ -1,0 +1,34 @@
+<erl>
+
+out(Arg) ->
+    SessionName = "chatssid",
+    % Session処理
+    C = (Arg#arg.headers)#headers.cookie,
+    {SessionCookie, SetCookie} = case yaws_api:find_cookie_val(SessionName, C) of
+        [] ->
+            Cookie = yaws_api:new_cookie_session({}),
+            CO = yaws_api:setcookie(SessionName, Cookie, "/"),
+            {Cookie, CO};
+        Cookie ->
+            case yaws_api:cookieval_to_opaque(Cookie) of
+                {ok, OP} ->
+                    Cookie,
+                    {Cookie, undefined};
+                {error, no_session} ->
+                    CO = yaws_api:setcookie(SessionName, Cookie, "/"),
+                    {Cookie, CO}
+            end
+    end,
+
+    case SetCookie of
+        undefined -> {html, "found cookie"};
+        _Else -> [SetCookie, {html, "cookie may be created"}]
+    end.
+%    put(session, SessionCookie),
+%
+%    chat_server ! {ping, self()},
+%    receive
+%        Message ->
+%            {html, "ok"}
+%    end.
+</erl>
