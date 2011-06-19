@@ -1,8 +1,0 @@
-<erl>
-out(Arg) ->
-    chat_server ! {ping, self()},
-    receive
-        Message ->
-            {html, "ok"}
-    end.
-</erl>
