@@ -6,17 +6,14 @@ out(Arg) ->
     C = (Arg#arg.headers)#headers.cookie,
     {SessionCookie, SetCookie} = case yaws_api:find_cookie_val(?SESSION_NAME, C) of
         [] ->
-            Cookie = yaws_api:new_cookie_session({}),
-            CO = yaws_api:setcookie(?SESSION_NAME, Cookie, "/"),
-            {Cookie, CO};
+            create_session_cookie();
         Cookie ->
             case yaws_api:cookieval_to_opaque(Cookie) of
                 {ok, OP} ->
                     Cookie,
                     {Cookie, undefined};
                 {error, no_session} ->
-                    CO = yaws_api:setcookie(?SESSION_NAME, Cookie, "/"),
-                    {Cookie, CO}
+                    create_session_cookie()
             end
     end,
 
@@ -33,13 +30,12 @@ out(Arg) ->
             %% session cookie is newly set, so send SET-COOKIE header 
             [SetCookie, {html, "cookie may be created"}]
     end.
-%    put(session, SessionCookie),
-%
-%    chat_server ! {ping, self()},
-%    receive
-%        Message ->
-%            {html, "ok"}
-%    end.
+
+%% create session cookie
+create_session_cookie() ->
+    Cookie = yaws_api:new_cookie_session({}),
+    CO = yaws_api:setcookie(?SESSION_NAME, Cookie, "/"),
+    {Cookie, CO}.
 
 %% request handler
 handle_request('GET', Arg, SessionCookie) ->
