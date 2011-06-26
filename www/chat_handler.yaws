@@ -1,13 +1,13 @@
 <erl>
+-define(SESSION_NAME, "chatssid").
 
 out(Arg) ->
-    SessionName = "chatssid",
-    % Session処理
+    % Session Handling
     C = (Arg#arg.headers)#headers.cookie,
-    {SessionCookie, SetCookie} = case yaws_api:find_cookie_val(SessionName, C) of
+    {SessionCookie, SetCookie} = case yaws_api:find_cookie_val(?SESSION_NAME, C) of
         [] ->
             Cookie = yaws_api:new_cookie_session({}),
-            CO = yaws_api:setcookie(SessionName, Cookie, "/"),
+            CO = yaws_api:setcookie(?SESSION_NAME, Cookie, "/"),
             {Cookie, CO};
         Cookie ->
             case yaws_api:cookieval_to_opaque(Cookie) of
@@ -15,14 +15,23 @@ out(Arg) ->
                     Cookie,
                     {Cookie, undefined};
                 {error, no_session} ->
-                    CO = yaws_api:setcookie(SessionName, Cookie, "/"),
+                    CO = yaws_api:setcookie(?SESSION_NAME, Cookie, "/"),
                     {Cookie, CO}
             end
     end,
 
+    %% operation for request
+    Method = (Arg#arg.req)#http_request.method,
+    Response = handle_request(Method, Arg, SessionCookie),
+
+    %% send response to client
     case SetCookie of
-        undefined -> {html, "found cookie"};
-        _Else -> [SetCookie, {html, "cookie may be created"}]
+        undefined -> 
+            %% session cookie is already set
+            {html, "found cookie"};
+        _Else -> 
+            %% session cookie is newly set, so send SET-COOKIE header 
+            [SetCookie, {html, "cookie may be created"}]
     end.
 %    put(session, SessionCookie),
 %
@@ -31,4 +40,41 @@ out(Arg) ->
 %        Message ->
 %            {html, "ok"}
 %    end.
+
+%% request handler
+handle_request('GET', Arg, SessionCookie) ->
+    handle_get(Arg, SessionCookie);
+handle_request('POST', Arg, SessionCookie) ->
+    handle_post(Arg, SessionCookie).
+
+%% handler of GET
+handle_get(Arg, SessionCookie) ->
+    ok.
+
+%% handler of POST
+handle_post(Arg, SessionCookie) ->
+    Form = yaws_api:parse_post(Arg), %% {Key, Value} list of the items set by the browser
+    Ret = process_form(Form, SessionCookie),
+    Ret.
+
+%% processor of form paramters
+process_form([{"name", Name}| _Tail], SessionCookie) ->
+    %% join to chat
+    chat_server ! {join, SessionCookie, Name},
+    "ok";
+process_form([{"logout", _Value}| _Tail], SessionCookie) ->
+    %% logout
+    chat_server ! {logout, SessionCookie},
+    "ok";
+process_form([{"message", Message}| _Tail], SessionCookie) ->
+    %% post message
+    chat_server ! {post_message, SessionCookie, self(), Message},
+    receive
+        Status -> Status
+    end;
+process_form([{_Key, _Value}| Tail], SessionCookie) ->
+    process_form(Tail, SessionCookie);
+process_form([], _SessionCookie) ->
+    %% no parameter matches
+    "ng".
 </erl>
