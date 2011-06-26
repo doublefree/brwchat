@@ -17,7 +17,7 @@ init() ->
 
     %% open dets to store chat data
     dets:open_file(?CHAT_DATA, ?DETS_OPT),
-    case dets:lookup(?CHAT_DATA, logid) of
+    case dets:lookup(?CHAT_DATA, log_id) of
         [{log_id, _}] ->
             %% data initialization is already finished
             true;
@@ -50,14 +50,15 @@ join(SessionCookie, Name) ->
         name = get_unique_name(Members, SessionCookie, Name, 0),
         access_time = get_now()
     },
-    dets:insert(?CHAT_DATA, {
-        member,
-        lists:ukeymerge(
+    NewMembers = lists:ukeymerge(
             #chat_member.session_cookie,
             [Member],
             Members
-        )}),
-    ok.
+        ),
+    dets:insert(?CHAT_DATA, {member, NewMembers}),
+
+    Message = io_lib:format("~s joined", [Name]),
+    add_message("System", Message).
 
 get_unique_name(Members, SessionCookie, Name, SynCount) ->
     GeneratedName = generate_name(Name, SynCount),
@@ -83,3 +84,33 @@ get_now() ->
     calendar:datetime_to_gregorian_seconds(
         calendar:now_to_local_time(now())
     ).
+
+add_message(Name, Message) ->
+    % increment log id
+    [{log_id, CurrentId}] = dets:lookup(?CHAT_DATA, log_id),
+    NewId = CurrentId + 1,
+    dets:insert(?CHAT_DATA, {log_id, NewId}),
+
+    % lookup chat log
+    [{log, Log}] = dets:lookup(?CHAT_DATA, log),
+
+    % new chat record
+    {{_Year, Month, Day}, {Hour, Minute, Second}} = calendar:now_to_local_time(now()),
+    Time = lists:flatten(io_lib:format("~w/~w ~2.2.0w:~2.2.0w:~2.2.0w", [Month, Day, Hour, Minute, Second])),
+    NewRecord = #chat_log{
+        time = Time,
+        name = Name,
+        message = lists:flatten(Message)},
+    NewLog = Log ++ [NewRecord],
+
+    % trim log
+    TrimmedLog = if
+        length(NewLog) > ?CHAT_LOG_SIZE ->
+            lists:nthtail(length(Log) - ?CHAT_LOG_SIZE, NewLog);
+        true ->
+            % default
+            NewLog
+    end,
+
+    % save log
+    dets:insert(?CHAT_DATA, {log, TrimmedLog}).
