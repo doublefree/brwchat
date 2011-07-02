@@ -1,5 +1,6 @@
 -module(chat_server).
 -export([start/0, init/0]).
+-export([join/2]).
 -include("chat.hrl").
 -include("/opt/local/lib/yaws/include/yaws.hrl").
 
@@ -32,18 +33,21 @@ init() ->
     %% start to loop
     loop().
 
+join(SessionCookie, Name) ->
+    ?MODULE ! {join, SessionCookie, Name}.
+
 loop() ->
     receive
         {join, SessionCookie, Name} ->
             %% join to chat
-            join(SessionCookie, Name);
+            handle_join(SessionCookie, Name);
         {_, Pid} ->
             Pid ! {ok, self()}
     end,
 
     loop().
 
-join(SessionCookie, Name) ->
+handle_join(SessionCookie, Name) ->
     [{member, Members}] = dets:lookup(?CHAT_DATA, member),
     Member = #chat_member{
         session_cookie = SessionCookie,

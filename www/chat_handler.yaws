@@ -56,7 +56,7 @@ handle_post(Arg, SessionCookie) ->
 %% processor of form paramters
 process_form([{"name", Name}| _Tail], SessionCookie) ->
     %% join to chat
-    chat_server ! {join, SessionCookie, Name},
+    chat_server:join(SessionCookie, Name),
     "ok";
 process_form([{"logout", _Value}| _Tail], SessionCookie) ->
     %% logout
