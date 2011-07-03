@@ -1,17 +1,18 @@
 -record(chat_log,   {
             time,       %term()
+            user_id,    %term()
             name,       %term()
             message     %term()
         }).
 
 -record(chat_waiter,    {
             pid,            %int()
-            session_cookie, %term()
+            user_id,        %term()
             id              %term()
         }).
 
 -record(chat_member,    {
-            session_cookie, %term()
+            user_id,        %term()
             name,           %term()
             access_time     %term()
         }).
