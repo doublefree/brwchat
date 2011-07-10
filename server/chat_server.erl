@@ -5,7 +5,7 @@
 -include("/opt/local/lib/yaws/include/yaws.hrl").
 
 -define(SYSTEM_ID, 0).
--define(SYSTEM_NAME, 0).
+-define(SYSTEM_NAME, "system").
 
 %% --------------------------
 %% public functions
