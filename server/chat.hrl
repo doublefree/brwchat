@@ -1,4 +1,5 @@
 -record(chat_log,   {
+            log_id,     %term()
             time,       %term()
             user_id,    %term()
             name,       %term()

@@ -25,4 +25,18 @@ $(function() {
 
         return false;
     });
+    $('#get_message').submit(function() {
+        $.get('chat_handler.yaws', 
+            {
+                Message: 0
+            },
+            success = function(data) {
+            alert(data);
+                // hide container
+                //$("#login_container").hide();
+            }
+        );
+
+        return false;
+    });
 });
