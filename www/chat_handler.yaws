@@ -1,5 +1,6 @@
 <erl>
 -define(SESSION_NAME, "chatssid").
+-include("server/chat.hrl").
 
 out(Arg) ->
     % Session Handling
@@ -25,10 +26,10 @@ out(Arg) ->
     case SetCookie of
         undefined -> 
             %% session cookie is already set
-            {html, "found cookie"};
+            {html, Response};
         _Else -> 
             %% session cookie is newly set, so send SET-COOKIE header 
-            [SetCookie, {html, "cookie may be created"}]
+            [SetCookie, {html, Response}]
     end.
 
 %% create session cookie
@@ -52,8 +53,7 @@ handle_get(Arg, SessionIdentifier) ->
                 SessionIdentifier,
                 list_to_integer(MessageId)
             ),
-            ConvertedMessage = message_to_json(Message),
-            ConvertedMessage;
+            message_to_json(Message);
         _Else ->
             "invalid request get is given"
     end.
@@ -85,6 +85,17 @@ process_form([], _SessionIdentifier) ->
     %% no parameter matches
     "ng".
 
-message_to_json(Message) ->
-    Message.
+message_to_json(Messages) ->
+    JsonMessage = {array, lists:map(
+        fun(E) ->
+            #chat_log{log_id = LogId, time = Time, user_id = UserId, name = Name, message = Message} = E,
+            {struct, [
+                {"log_id", LogId},
+                {"time", Time},
+                {"user_id", UserId},
+                {"name", Name},
+                {"message", Message}
+            ]}
+        end, Messages)},
+    json:encode(JsonMessage).
 </erl>
