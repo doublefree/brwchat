@@ -56,7 +56,7 @@ Chat.Message = function() {
         for(var i = 0; i < messageList.length; i++) {
             $("#chat_message").prepend(
                 "<dt id=\"message" + messageList[i].log_id + "\">" +
-                    escape(messageList[i].name) +
+                    convertName(escape(messageList[i].name)) +
                 "</dt>" +
                 "<dd>" + 
                     "<div>" +
