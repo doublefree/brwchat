@@ -27,7 +27,7 @@ Chat.Message = function() {
         return messageId;
     }
 
-    var getMessage = function(handler) {
+    var forceRefresh = function(handler) {
         $.get(handler, 
             {
                 'messageId': getMessageId()
@@ -35,6 +35,19 @@ Chat.Message = function() {
             success = function(data) {
                 var messages = JSON.parse(data);
                 showMessage(messages);
+            }
+        );
+    }
+
+    var waitMessage = function(handler, callback) {
+        $.getJSON(
+            handler,
+            {
+                messageId : getMessageId()
+            },
+            function(data, state) {
+                showMessage(data);
+                callback(state);
             }
         );
     }
@@ -58,8 +71,9 @@ Chat.Message = function() {
 
     return {
         'getMessageId' : getMessageId,
-        'getMessage' : getMessage, 
-        'showMessage' : showMessage
+        'forceRefresh' : forceRefresh, 
+        'showMessage' : showMessage,
+        'waitMessage' : waitMessage
     }
 };
 
@@ -80,11 +94,12 @@ $(function() {
                 name: login_name
             },
             success = function(data) {
-            alert(data);
                 // hide container
                 $("#login_container").hide();
+                setTimeout(chat_message.waitMessage(chat_handler, waitCallback), 1); 
             }
         );
+
 
         return false;
     });
@@ -109,5 +124,9 @@ $(function() {
 
         return false;
     });
+
+    var waitCallback = function(result) {
+        chat_message.waitMessage(chat_handler, waitCallback);
+    }
 });
 

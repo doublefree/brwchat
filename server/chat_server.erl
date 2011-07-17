@@ -76,7 +76,8 @@ handle_get_message(SessionIdentifier, MessageId, Pid) ->
     Message = chat_data:message_get(MessageId),
     case length(Message) of
         0 -> chat_data:listener_add(SessionIdentifier, MessageId, Pid);
-        _Length -> Pid ! {reply, Message}
+        _Length -> 
+            Pid ! {reply, Message}
     end.
 
 handle_post_message(SessionIdentifier, Message) ->
