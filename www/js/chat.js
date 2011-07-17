@@ -1,6 +1,6 @@
 /**
 * chat.js
-* @author takuya-watabe
+* @author TAKUYA watabe
 */
 
 // chat message
@@ -82,6 +82,7 @@ var chat_message = Chat.Message();
 // onload
 $(function() {
     const chat_handler = 'chat_handler.yaws';
+    $("#post_message").hide();
     $('#login').submit(function() {
         var login_name = $('#name').val();
         if (login_name.length == 0) {
@@ -96,6 +97,7 @@ $(function() {
             success = function(data) {
                 // hide container
                 $("#login_container").hide();
+                $("#post_message").show();
                 setTimeout(chat_message.waitMessage(chat_handler, waitCallback), 1); 
             }
         );
