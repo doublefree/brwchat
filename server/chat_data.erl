@@ -1,6 +1,6 @@
 -module(chat_data).
 -export([start/0, init/0]).
--export([member_add/2, member_update_access_time/1]).
+-export([member_add/2, member_update_access_time/1, member_get/1]).
 -export([message_add/3, message_get/1]).
 -include("chat.hrl").
 
@@ -41,6 +41,13 @@ member_update_access_time(UserId) ->
     ?MODULE ! {member_update_access_time, UserId, self()},
     receive
         {reply, ok} -> ok
+    end.
+
+member_get(UserId) ->
+    ?MODULE ! {member_get, UserId, self()},
+    receive
+        {reply, {ok, Member}} -> Member;
+        {reply, {error, _Reason}} -> []
     end.
 
 message_add(UserId, Name, Message) ->
@@ -86,6 +93,9 @@ loop(Table) ->
         {member_update_access_time, UserId, Pid} ->
             handle_member_update_access_time(Table, UserId),
             Pid ! {reply, ok};
+        {member_get, UserId, Pid} ->
+            Member = handle_member_get(Table, UserId),
+            Pid ! {reply, Member};
         {message_add, Message, Pid} ->
             handle_message_add(Table, Message),
             Pid ! {reply, ok};
@@ -112,6 +122,15 @@ handle_member_update_access_time(Table, UserId) ->
             NewMembers = merge_member_list(NewMember, Members),
             insert(Table, member, NewMembers);
         Else -> Else % ignore if not found
+    end.
+
+handle_member_get(Table, UserId) ->
+    [{member, Members}] = lookup(Table, member),
+    case lists:keysearch(UserId, #chat_member.user_id, Members) of
+        {value, Member} -> 
+            {ok, Member};
+        _Else -> 
+            {error, not_found}
     end.
 
 handle_message_add(Table, Message) ->

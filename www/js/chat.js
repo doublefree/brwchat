@@ -5,6 +5,7 @@
 
 // onload
 $(function() {
+    const chat_handler = 'chat_handler.yaws';
     $('#login').submit(function() {
         var login_name = $('#name').val();
         if (login_name.length == 0) {
@@ -12,27 +13,35 @@ $(function() {
             return false;
         }
 
-        $.post('chat_handler.yaws', 
+        $.post(chat_handler, 
             {
                 name: login_name
             },
             success = function(data) {
             alert(data);
                 // hide container
-                //$("#login_container").hide();
+                $("#login_container").hide();
             }
         );
 
         return false;
     });
     $('#get_message').submit(function() {
-        $.get('chat_handler.yaws', 
+        chat_message.getMessage(chat_handler);
+        return false;
+    });
+    $('#post_message').submit(function() {
+        var message = $('#message').val();
+        if (message.length == 0) {
+            return false;
+        }
+
+        $.post(chat_handler,
             {
-                Message: chat_message.getMessageId()
+                'message': message
             },
             success = function(data) {
-                var messages = JSON.parse(data);
-                chat_message.showMessage(messages);
+                $('#message').val('');
             }
         );
 
@@ -57,26 +66,40 @@ Chat.Message = function() {
     var escape = function(val) {
         return $("<div/>").text(val).html();
     }
-    return {
-        getMessageId : function() {
-            return messageId;
-        },
-        showMessage : function(messageList) {
-            for(var i = 0; i < messageList.length; i++) {
-                $("#chat_message").prepend(
-                    "<dt id=\"message" + messageList[i].log_id + "\">" +
-                        escape(messageList[i].name) +
-                    "</dt>" +
-                    "<dd>" + 
-                        "<div>" +
-                        escape(messageList[i].message) +
-                        "</div>" +
-                    "</dd>");
-                if(messageId < messageList[i].log_id) {
-                    messageId = messageList[i].log_id;
-                }
+    var getMessageId = function() {
+        return messageId;
+    }
+    var getMessage = function(handler) {
+        $.get(handler, 
+            {
+                'messageId': getMessageId()
+            },
+            success = function(data) {
+                var messages = JSON.parse(data);
+                showMessage(messages);
+            }
+        );
+    }
+    var showMessage = function(messageList) {
+        for(var i = 0; i < messageList.length; i++) {
+            $("#chat_message").prepend(
+                "<dt id=\"message" + messageList[i].log_id + "\">" +
+                    escape(messageList[i].name) +
+                "</dt>" +
+                "<dd>" + 
+                    "<div>" +
+                    escape(messageList[i].message) +
+                    "</div>" +
+                "</dd>");
+            if(messageId < messageList[i].log_id) {
+                messageId = messageList[i].log_id;
             }
         }
+    }
+    return {
+        'getMessageId' : getMessageId,
+        'getMessage' : getMessage, 
+        'showMessage' : showMessage
     }
 };
 

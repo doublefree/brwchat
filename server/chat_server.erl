@@ -1,6 +1,6 @@
 -module(chat_server).
 -export([start/0, init/0]).
--export([join/2, get_message/2]).
+-export([join/2, get_message/2, post_message/2]).
 -include("chat.hrl").
 -include("/opt/local/lib/yaws/include/yaws.hrl").
 
@@ -34,6 +34,12 @@ get_message(SessionIdentifier, MessageId) ->
         {reply, Message} -> Message
     end.
 
+post_message(SessionIdentifier, Message) ->
+    ?MODULE ! {post_message, SessionIdentifier, Message, self()},
+    receive
+        {reply, Status} -> Status
+    end.
+
 %% --------------------------
 %% private functions
 %% --------------------------
@@ -47,6 +53,10 @@ loop() ->
             %% get chat message
             Message = handle_get_message(SessionIdentifier, MessageId),
             Pid ! {reply, Message}; 
+        {post_message, SessionIdentifier, Message, Pid} ->
+            %% post chat message
+            Status = handle_post_message(SessionIdentifier, Message),
+            Pid ! {reply, Status};
         {_, Pid} ->
             Pid ! {ok, self()}
     end,
@@ -62,3 +72,8 @@ handle_join(SessionIdentifier, Name) ->
 handle_get_message(SessionIdentifier, MessageId) ->
     chat_data:member_update_access_time(SessionIdentifier),
     chat_data:message_get(MessageId).
+
+handle_post_message(SessionIdentifier, Message) ->
+    Member = chat_data:member_get(SessionIdentifier),
+    Name = Member#chat_member.name,
+    chat_data:message_add(SessionIdentifier, Name, Message).

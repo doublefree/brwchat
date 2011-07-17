@@ -47,8 +47,8 @@ handle_request('POST', Arg, SessionIdentifier) ->
 %% handler of GET
 handle_get(Arg, SessionIdentifier) ->
     Query = yaws_api:parse_query(Arg),
-    case lists:keysearch("Message", 1, Query) of
-        {value, {"Message", MessageId}} ->
+    case lists:keysearch("messageId", 1, Query) of
+        {value, {"messageId", MessageId}} ->
             Message = chat_server:get_message(
                 SessionIdentifier,
                 list_to_integer(MessageId)
@@ -75,10 +75,8 @@ process_form([{"logout", _Value}| _Tail], SessionIdentifier) ->
     "ok";
 process_form([{"message", Message}| _Tail], SessionIdentifier) ->
     %% post message
-    chat_server ! {post_message, SessionIdentifier, self(), Message},
-    receive
-        Status -> Status
-    end;
+    chat_server:post_message(SessionIdentifier, Message),
+    "ok";
 process_form([{_Key, _Value}| Tail], SessionIdentifier) ->
     process_form(Tail, SessionIdentifier);
 process_form([], _SessionIdentifier) ->
