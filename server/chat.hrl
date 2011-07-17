@@ -6,10 +6,10 @@
             message     %term()
         }).
 
--record(chat_waiter,    {
-            pid,            %int()
+-record(chat_listener,    {
             user_id,        %term()
-            id              %term()
+            message_id,     %term()
+            pid             %int()
         }).
 
 -record(chat_member,    {

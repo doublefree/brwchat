@@ -51,8 +51,7 @@ loop() ->
             Pid ! {reply, ok};
         {get_message, SessionIdentifier, MessageId, Pid} ->
             %% get chat message
-            Message = handle_get_message(SessionIdentifier, MessageId),
-            Pid ! {reply, Message}; 
+            handle_get_message(SessionIdentifier, MessageId, Pid);
         {post_message, SessionIdentifier, Message, Pid} ->
             %% post chat message
             Status = handle_post_message(SessionIdentifier, Message),
@@ -60,6 +59,9 @@ loop() ->
         {_, Pid} ->
             Pid ! {ok, self()}
     end,
+
+    % call notify when any events occur
+    notify(),
 
     loop().
 
@@ -69,11 +71,27 @@ handle_join(SessionIdentifier, Name) ->
     Message = io_lib:format("~s joined", [Name]),
     chat_data:message_add(?SYSTEM_ID, ?SYSTEM_NAME, Message).
 
-handle_get_message(SessionIdentifier, MessageId) ->
+handle_get_message(SessionIdentifier, MessageId, Pid) ->
     chat_data:member_update_access_time(SessionIdentifier),
-    chat_data:message_get(MessageId).
+    Message = chat_data:message_get(MessageId),
+    case length(Message) of
+        0 -> chat_data:listener_add(SessionIdentifier, MessageId, Pid);
+        _Length -> Pid ! {reply, Message}
+    end.
 
 handle_post_message(SessionIdentifier, Message) ->
     Member = chat_data:member_get(SessionIdentifier),
     Name = Member#chat_member.name,
     chat_data:message_add(SessionIdentifier, Name, Message).
+
+notify() ->
+    Listeners = chat_data:listeners_get(),
+    chat_data:listeners_clear(),
+    lists:foreach(fun(E) ->
+        #chat_listener{
+            user_id = SessionIdentifier,
+            message_id = MessageId,
+            pid = Pid
+        } = E,
+        handle_get_message(SessionIdentifier, MessageId, Pid)
+    end, Listeners).

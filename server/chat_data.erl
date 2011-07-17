@@ -2,6 +2,7 @@
 -export([start/0, init/0]).
 -export([member_add/2, member_update_access_time/1, member_get/1]).
 -export([message_add/3, message_get/1]).
+-export([listener_add/3, listeners_get/0, listeners_clear/0]).
 -include("chat.hrl").
 
 -define(CHAT_LOG_SIZE, 100).
@@ -20,7 +21,7 @@ init() ->
     insert(Table, log_id, 0),
     insert(Table, log, []),
     insert(Table, member, []),
-    insert(Table, waiter, []),
+    insert(Table, listener, []),
 
     % start loop
     loop(Table).
@@ -76,6 +77,29 @@ message_get(MessageId) ->
         {reply, Message} -> Message
     end.
 
+listener_add(UserId, MessageId, ListenerPid) ->
+    Listener = #chat_listener {
+        user_id = UserId,
+        message_id = MessageId,
+        pid = ListenerPid
+    },
+    ?MODULE ! {listener_add, Listener, self()},
+    receive
+        {reply, ok} -> ok
+    end.
+
+listeners_get() ->
+    ?MODULE ! {listeners_get, self()},
+    receive
+        {reply, Listeners} -> Listeners
+    end.
+
+listeners_clear() ->
+    ?MODULE ! {listeners_clear, self()},
+    receive
+        {reply, ok} -> ok
+    end.
+
 %% --------------------------
 %% private functions
 %% --------------------------
@@ -102,6 +126,15 @@ loop(Table) ->
         {message_get, MessageId, Pid} ->
             Message = handle_message_get(Table, MessageId),
             Pid ! {reply, Message};
+        {listener_add, Listener, Pid} ->
+            handle_listener_add(Table, Listener),
+            Pid ! {reply, ok};
+        {listeners_get, Pid} ->
+            Listeners = handle_listeners_get(Table),
+            Pid ! {reply, Listeners};
+        {listeners_clear, Pid} ->
+            handle_listeners_clear(Table),
+            Pid ! {reply, ok};
         {increment_log_id, Pid} ->
             LogId = handle_increment_log_id(Table),
             Pid ! {reply, LogId}
@@ -157,6 +190,18 @@ handle_message_get(Table, MessageId) ->
             LogId =< MessageId
         end, Log),
     TrimmedMessage.
+
+handle_listener_add(Table, Listener) ->
+    [{listener, Listeners}] = lookup(Table, listener),
+    NewListeners = Listeners ++ [Listener],
+    insert(Table, listener, NewListeners).
+
+handle_listeners_get(Table) ->
+    [{listener, Listeners}] = lookup(Table, listener),
+    Listeners.
+
+handle_listeners_clear(Table) ->
+    insert(Table, listener, []).
 
 handle_increment_log_id(Table) ->
     [{log_id, CurrentId}] = lookup(Table, log_id),
