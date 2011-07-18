@@ -1,0 +1,10 @@
+h1. Readme
+* author : TAKUYA watabe
+* overview : browser based online chat
+* system requirements : erlang/yaws(erlang webserver)
+
+h2. How to install sample
+* setup erlang and yaws
+* deploy all code to project root (ex : /var/www/chat)
+* move to "server" dir and execute "./build.sh"
+* move to project root and execute "./sample/start_server.sh"
