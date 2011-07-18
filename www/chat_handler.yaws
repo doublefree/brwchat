@@ -1,0 +1,99 @@
+<erl>
+-define(SESSION_NAME, "chatssid").
+-include("server/chat.hrl").
+
+out(Arg) ->
+    % Session Handling
+    C = (Arg#arg.headers)#headers.cookie,
+    {SessionIdentifier, SetCookie} = case yaws_api:find_cookie_val(?SESSION_NAME, C) of
+        [] ->
+            create_session_cookie();
+        Cookie ->
+            case yaws_api:cookieval_to_opaque(Cookie) of
+                {ok, OP} ->
+                    Cookie,
+                    {Cookie, undefined};
+                {error, no_session} ->
+                    create_session_cookie()
+            end
+    end,
+
+    %% operation for request
+    Method = (Arg#arg.req)#http_request.method,
+    Response = handle_request(Method, Arg, SessionIdentifier),
+
+    %% send response to client
+    case SetCookie of
+        undefined -> 
+            %% session cookie is already set
+            {html, Response};
+        _Else -> 
+            %% session cookie is newly set, so send SET-COOKIE header 
+            [SetCookie, {html, Response}]
+    end.
+
+%% create session cookie
+create_session_cookie() ->
+    Cookie = yaws_api:new_cookie_session({}),
+    CO = yaws_api:setcookie(?SESSION_NAME, Cookie, "/"),
+    {Cookie, CO}.
+
+%% request handler
+handle_request('GET', Arg, SessionIdentifier) ->
+    handle_get(Arg, SessionIdentifier);
+handle_request('POST', Arg, SessionIdentifier) ->
+    handle_post(Arg, SessionIdentifier).
+
+%% handler of GET
+handle_get(Arg, SessionIdentifier) ->
+    Query = yaws_api:parse_query(Arg),
+    case lists:keysearch("messageId", 1, Query) of
+        {value, {"messageId", MessageId}} ->
+            Message = chat_server:get_message(
+                SessionIdentifier,
+                list_to_integer(MessageId)
+            ),
+            message_to_json(Message);
+        _Else ->
+            "invalid request get is given"
+    end.
+
+%% handler of POST
+handle_post(Arg, SessionIdentifier) ->
+    Form = yaws_api:parse_post(Arg), %% {Key, Value} list of the items set by the browser
+    Ret = process_form(Form, SessionIdentifier),
+    Ret.
+
+%% processor of form paramters
+process_form([{"name", Name}| _Tail], SessionIdentifier) ->
+    %% join to chat
+    chat_server:join(SessionIdentifier, Name),
+    "ok";
+process_form([{"logout", _Value}| _Tail], SessionIdentifier) ->
+    %% logout
+    chat_server ! {logout, SessionIdentifier},
+    "ok";
+process_form([{"message", Message}| _Tail], SessionIdentifier) ->
+    %% post message
+    chat_server:post_message(SessionIdentifier, Message),
+    "ok";
+process_form([{_Key, _Value}| Tail], SessionIdentifier) ->
+    process_form(Tail, SessionIdentifier);
+process_form([], _SessionIdentifier) ->
+    %% no parameter matches
+    "ng".
+
+message_to_json(Messages) ->
+    JsonMessage = {array, lists:map(
+        fun(E) ->
+            #chat_log{log_id = LogId, time = Time, user_id = UserId, name = Name, message = Message} = E,
+            {struct, [
+                {"log_id", LogId},
+                {"time", Time},
+                {"user_id", UserId},
+                {"name", Name},
+                {"message", Message}
+            ]}
+        end, Messages)},
+    json:encode(JsonMessage).
+</erl>
