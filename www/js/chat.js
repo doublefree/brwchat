@@ -12,7 +12,7 @@ Chat.Message = function() {
         var convertedName = name;
         switch (name) {
             case "system":
-                convertedName = "システムメッセージ";
+                convertedName = "SysMessage";
                 break;
         }
 
