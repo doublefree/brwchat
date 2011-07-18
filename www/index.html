@@ -7,17 +7,23 @@
 <script src="js/chat.js"></script>
 </head>
 <body>
-<h1>chat</h1>
+<h1>browser chat</h1>
 <div id="login_container">
     <form id="login">
-        <input type="text" id="name" />
-        <input type="submit" value="login" />
+        <div>
+            <img src="/img/member.png" />
+            <input type="text" id="name" />
+            <input type="submit" value="login" />
+        </div>
     </form>
 </div>
 <div id="message_container">
     <form id="post_message">
-        <input type="text" id="message" />
-        <input type="submit" value="send" />
+        <div>
+            <img src="/img/message.png" />
+            <input type="text" id="message" />
+            <input type="submit" value="send" />
+        </div>
     </form>
     <dl id="chat_message">
     </dl>

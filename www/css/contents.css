@@ -2,3 +2,36 @@
 * global.css 
 * @author TAKUYA watabe
 */
+div img{
+    vertical-align: bottom;
+}
+#login div {
+    padding: 5px 10px;
+    background-color: #d3d3d3;
+    border-top: 1px solid #778899;
+    border-bottom: 1px solid #778899;
+}
+#post_message div {
+    padding: 5px 10px;
+    background-color: #e6e6fa;
+    border-top: 1px solid #778899;
+    border-bottom: 1px solid #778899;
+}
+input#message {
+    width: 450px;
+    padding: 2px 0px;
+}
+dl dt {
+    clear: left;
+    float: left;
+    margin: 0 0 10px 0;
+    width: 120px;
+    border-left: solid 8px #CCCCCC;
+    padding-left: 5px;
+    color: #778899;
+}
+
+dl dd {
+    margin-bottom: 10px;
+    margin-left: 10px;
+}
