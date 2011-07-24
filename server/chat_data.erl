@@ -1,8 +1,10 @@
 -module(chat_data).
 -export([start/0, init/0]).
 -export([member_add/2, member_update_access_time/1, member_get/1]).
+-export([member_list/0, member_delete/1]).
 -export([message_add/3, message_get/1]).
--export([listener_add/3, listeners_get/0, listeners_clear/0]).
+-export([listener_add/3, listener_delete/1]).
+-export([listener_list/0, listener_clear_all/0]).
 -include("chat.hrl").
 
 -define(CHAT_LOG_SIZE, 100).
@@ -30,12 +32,12 @@ member_add(UserId, Name) ->
     Member = #chat_member {
         user_id = UserId,
         name = Name,
-        access_time = get_now()
+        access_time = chat_util:get_now()
     },
 
     ?MODULE ! {member_add, Member, self()},
     receive
-        {reply, ok} -> ok
+        {reply, MemberCount} -> MemberCount
     end.
 
 member_update_access_time(UserId) ->
@@ -51,6 +53,18 @@ member_get(UserId) ->
         {reply, {error, _Reason}} -> []
     end.
 
+member_list() ->
+    ?MODULE ! {member_list, self()},
+    receive
+        {reply, MemberList} -> MemberList
+    end.
+
+member_delete(UserId) ->
+    ?MODULE ! {member_delete, UserId, self()},
+    receive
+        {reply, ok} -> ok
+    end.
+
 message_add(UserId, Name, Message) ->
     % get new log id
     ?MODULE ! {increment_log_id, self()},
@@ -61,7 +75,7 @@ message_add(UserId, Name, Message) ->
     % create chat message record
     MessageRecord = #chat_log{
         log_id = NewLogId,
-        time = get_now(),
+        time = chat_util:get_now(),
         user_id = UserId,
         name = Name,
         message = lists:flatten(Message)},
@@ -88,14 +102,20 @@ listener_add(UserId, MessageId, ListenerPid) ->
         {reply, ok} -> ok
     end.
 
-listeners_get() ->
-    ?MODULE ! {listeners_get, self()},
+listener_delete(UserId) ->
+    ?MODULE ! {listener_delete, UserId, self()},
+    receive
+        {reply, ok} -> ok
+    end.
+
+listener_list() ->
+    ?MODULE ! {listener_list, self()},
     receive
         {reply, Listeners} -> Listeners
     end.
 
-listeners_clear() ->
-    ?MODULE ! {listeners_clear, self()},
+listener_clear_all() ->
+    ?MODULE ! {listener_clear_all, self()},
     receive
         {reply, ok} -> ok
     end.
@@ -112,14 +132,20 @@ loop(Table) ->
             Value = lookup(Table, Key),
             Pid ! {reply, Value};
         {member_add, Member, Pid} ->
-            handle_member_add(Table, Member),
-            Pid ! {reply, ok};
+            MemberCount = handle_member_add(Table, Member),
+            Pid ! {reply, MemberCount};
         {member_update_access_time, UserId, Pid} ->
             handle_member_update_access_time(Table, UserId),
             Pid ! {reply, ok};
         {member_get, UserId, Pid} ->
             Member = handle_member_get(Table, UserId),
             Pid ! {reply, Member};
+        {member_list, Pid} ->
+            MemberList = handle_member_list(Table),
+            Pid ! {reply, MemberList};
+        {member_delete, UserId, Pid} ->
+            handle_member_delete(Table, UserId),
+            Pid ! {reply, ok};
         {message_add, Message, Pid} ->
             handle_message_add(Table, Message),
             Pid ! {reply, ok};
@@ -129,11 +155,14 @@ loop(Table) ->
         {listener_add, Listener, Pid} ->
             handle_listener_add(Table, Listener),
             Pid ! {reply, ok};
-        {listeners_get, Pid} ->
-            Listeners = handle_listeners_get(Table),
+        {listener_delete, UserId, Pid} ->
+            handle_listener_delete(Table, UserId),
+            Pid ! {reply, ok};
+        {listener_list, Pid} ->
+            Listeners = handle_listener_list(Table),
             Pid ! {reply, Listeners};
-        {listeners_clear, Pid} ->
-            handle_listeners_clear(Table),
+        {listener_clear_all, Pid} ->
+            handle_listener_clear_all(Table),
             Pid ! {reply, ok};
         {increment_log_id, Pid} ->
             LogId = handle_increment_log_id(Table),
@@ -145,13 +174,14 @@ loop(Table) ->
 handle_member_add(Table, Member) ->
     [{member, Members}] = lookup(Table, member),
     NewMembers = merge_member_list(Member, Members),
-    insert(Table, member, NewMembers).
+    insert(Table, member, NewMembers),
+    length(NewMembers).
 
 handle_member_update_access_time(Table, UserId) ->
     [{member, Members}] = lookup(Table, member),
     case lists:keysearch(UserId, #chat_member.user_id, Members) of
         {value, #chat_member{user_id = UserId} = Member} -> 
-            NewMember = Member#chat_member{access_time = get_now()},
+            NewMember = Member#chat_member{access_time = chat_util:get_now()},
             NewMembers = merge_member_list(NewMember, Members),
             insert(Table, member, NewMembers);
         Else -> Else % ignore if not found
@@ -165,6 +195,20 @@ handle_member_get(Table, UserId) ->
         _Else -> 
             {error, not_found}
     end.
+
+handle_member_list(Table) ->
+    [{member, Members}] = lookup(Table, member),
+    Members.
+
+handle_member_delete(Table, UserId) ->
+    [{member, Members}] = lookup(Table, member),
+    NewMembers = lists:filter(fun(Member) ->
+        case Member#chat_member.user_id == UserId of
+            true -> false;
+            false -> true
+        end
+    end, Members),
+    insert(Table, member, NewMembers).
 
 handle_message_add(Table, Message) ->
     [{log, Log}] = lookup(Table, log),
@@ -196,11 +240,21 @@ handle_listener_add(Table, Listener) ->
     NewListeners = Listeners ++ [Listener],
     insert(Table, listener, NewListeners).
 
-handle_listeners_get(Table) ->
+handle_listener_delete(Table, UserId) ->
+    [{listener, Listeners}] = lookup(Table, listener),
+    NewListeners = lists:filter(fun(Listener) ->
+        case Listener#chat_listener.user_id == UserId of
+            true -> false;
+            false -> true
+        end
+    end, Listeners),
+    insert(Table, listener, NewListeners).
+
+handle_listener_list(Table) ->
     [{listener, Listeners}] = lookup(Table, listener),
     Listeners.
 
-handle_listeners_clear(Table) ->
+handle_listener_clear_all(Table) ->
     insert(Table, listener, []).
 
 handle_increment_log_id(Table) ->
@@ -208,11 +262,6 @@ handle_increment_log_id(Table) ->
     NewId = CurrentId + 1,
     insert(Table, log_id, NewId),
     NewId.
-
-get_now() ->
-    calendar:datetime_to_gregorian_seconds(
-        calendar:now_to_local_time(now())
-    ).
 
 merge_member_list(NewMember, Members) ->
     lists:ukeymerge(
